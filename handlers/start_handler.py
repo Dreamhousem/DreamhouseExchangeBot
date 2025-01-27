@@ -4,7 +4,7 @@ from time import time
 from telegram import Update
 from telegram.ext import ContextTypes
 from telegram.error import TimedOut
-import logging
+from utils.logger import logger
 
 # Глобальный словарь для ограничения частоты запросов
 last_called = {}
@@ -23,10 +23,11 @@ async def rate_limited(user_id: int) -> bool:
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.effective_user.id
     user_first_name = update.message.from_user.first_name
+    logger.info(f"[START] User {user_first_name} (ID: {user_id}) отправил команду /start")
     if not await rate_limited(user_id):
         await update.message.reply_text("Слишком частые запросы. Подождите 3 секунды перед следующим запросом.")
         return
     try:
-        await update.message.reply_text(f"Привет, {user_first_name}! Я помогу следить за курсами валют.")
+        await update.message.reply_text(f"Привет, {user_first_name}! Я помогу вам следить за курсами валют Национального банка РБ. Используйте команду /help, чтобы узнать больше о возможностях бота.")
     except TimedOut:
         logging.error("Telegram API не отвечает. Повторная попытка...")
