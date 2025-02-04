@@ -8,7 +8,12 @@ from services.nbrb_api import get_rate_on_date
 import time
 
 # Список популярных валют
-POPULAR_CURRENCIES = ["USD", "EUR", "RUB", "CNY"]
+POPULAR_CURRENCIES = {
+    "USD": "🇺🇸",
+    "EUR": "🇪🇺",
+    "RUB": "🇷🇺",
+    "CNY": "🇨🇳"
+}
 
 async def rate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
@@ -50,7 +55,7 @@ async def rate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 )
                 if details:
                     currency_name, scale = details[0]
-                    responses.append(f"/{currency} {currency_name}: **{rate} BYN** (за {scale})")
+                    responses.append(f"/{currency} {currency_name}: \**{rate}\** BYN (за {scale})")
                     logger.info(f"[RATE] Добавлено в ответ: {currency_name} ({rate} BYN за {scale})")
                 else:
                     responses.append(f"/{currency}: Курс найден, но информация отсутствует.")
@@ -63,7 +68,7 @@ async def rate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             logger.error(f"[RATE] Ошибка при обработке {currency}: {e}")
 
     if responses:
-        message_text = f"💰 **Курсы валют на {today}:**\n" + "\n".join(responses)
+        message_text = f"💰 Курсы валют на \*{today}\*:\n" + "\n".join(responses)
     else:
         message_text = "❌ Не удалось получить курсы валют. Попробуйте позже."
         logger.error("[RATE] Итоговый ответ пуст, возможно, произошла ошибка.")
