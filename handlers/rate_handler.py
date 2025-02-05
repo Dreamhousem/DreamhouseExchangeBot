@@ -7,7 +7,7 @@ from db import execute_query, update_exchange_rates
 from services.nbrb_api import get_rate_on_date
 import time
 
-# Список популярных валют
+# Список популярных валют и их национальные флаги
 POPULAR_CURRENCIES = {
     "USD": "🇺🇸",
     "EUR": "🇪🇺",
@@ -26,36 +26,37 @@ async def rate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     today = datetime.now().strftime("%Y-%m-%d")
     responses = []
 
-    for currency in POPULAR_CURRENCIES:
+    for currency, flag in POPULAR_CURRENCIES.items():
         logger.info(f"[RATE] Проверяем курс {currency} на {today}...")
 
         try:
             # Проверяем кэш
             rate = get_from_cache(currency, today)
-            if rate is not None:
-                logger.info(f"[RATE] Курс {currency} найден в кэше: {rate}")
-            else:
+
+            if rate is None:
                 logger.info(f"[RATE] Курс {currency} отсутствует в кэше, проверяем БД...")
                 query = "SELECT rate FROM exchange_rates WHERE currency_code = ? AND date = ? LIMIT 1"
                 result = execute_query(query, (currency, today))
 
                 if result:
-                    rate = result[0][0]
+                    rate = result[0][0]  # Достаем число из БД
                     add_to_cache(currency, today, rate)
                     logger.info(f"[RATE] Курс {currency} найден в БД: {rate}")
                 else:
                     logger.info(f"[RATE] Курс {currency} отсутствует в БД, обновляем данные через API...")
-                    update_exchange_rates(POPULAR_CURRENCIES)
+                    update_exchange_rates(POPULAR_CURRENCIES.keys())
                     rate = get_from_cache(currency, today)
 
             if rate:
+                # Получаем название валюты и масштаб (scale)
                 details = execute_query(
                     "SELECT currency_name, scale FROM currency_requests WHERE currency_code = ? LIMIT 1",
                     (currency,)
                 )
+                
                 if details:
                     currency_name, scale = details[0]
-                    responses.append(f"/{currency} {currency_name}: \**{rate}\** BYN (за {scale})")
+                    responses.append(f"/{currency} {currency_name}: {rate} BYN (за {scale} {flag})")
                     logger.info(f"[RATE] Добавлено в ответ: {currency_name} ({rate} BYN за {scale})")
                 else:
                     responses.append(f"/{currency}: Курс найден, но информация отсутствует.")
@@ -68,7 +69,7 @@ async def rate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             logger.error(f"[RATE] Ошибка при обработке {currency}: {e}")
 
     if responses:
-        message_text = f"💰 Курсы валют на \*{today}\*:\n" + "\n".join(responses)
+        message_text = f"💰 Курсы валют на {today}:\n\n" + "\n".join(responses)
     else:
         message_text = "❌ Не удалось получить курсы валют. Попробуйте позже."
         logger.error("[RATE] Итоговый ответ пуст, возможно, произошла ошибка.")
@@ -93,26 +94,25 @@ async def rate_on_date(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     currency_code = context.args[0].upper()
     date = context.args[1]
+    flag = POPULAR_CURRENCIES.get(currency_code, "🏳")  # Флаг по умолчанию, если нет в списке
 
     logger.info(f"[RATE_ON_DATE] Проверяем курс {currency_code} на {date}...")
 
     rate = get_from_cache(currency_code, date)
-    if rate is not None:
-        logger.info(f"[RATE_ON_DATE] Курс {currency_code} найден в кэше: {rate}")
-    else:
-        logger.info(f"[RATE_ON_DATE] Курс {currency_code} отсутствует в кэше, проверяем БД...")
 
+    if rate is None:
+        logger.info(f"[RATE_ON_DATE] Курс {currency_code} отсутствует в кэше, проверяем БД...")
         query = "SELECT rate FROM exchange_rates WHERE currency_code = ? AND date = ? LIMIT 1"
         result = execute_query(query, (currency_code, date))
 
         if result:
-            rate = result[0][0]
+            rate = result[0][0]  # Берем только числовое значение
             add_to_cache(currency_code, date, rate)
             logger.info(f"[RATE_ON_DATE] Курс {currency_code} найден в БД: {rate}")
         else:
             logger.info(f"[RATE_ON_DATE] Курс {currency_code} отсутствует в БД, запрашиваем через API...")
             rate = get_rate_on_date(currency_code, date)
-            
+
             if rate:
                 add_to_cache(currency_code, date, rate)
                 logger.info(f"[RATE_ON_DATE] Курс {currency_code} получен через API и добавлен в кэш: {rate}")
@@ -125,7 +125,7 @@ async def rate_on_date(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
         if details:
             currency_name, scale = details[0]
-            response_message = f"💰 /{currency_code} {currency_name}: **{rate} BYN** (за {scale}) на {date}"
+            response_message = f"💰 /{currency_code} {currency_name}: {rate} BYN (за {scale} {flag}) на {date}"
             await update.message.reply_text(response_message)
             logger.info(f"[RATE_ON_DATE] Ответ отправлен пользователю {user.full_name} (ID: {user.id}): {response_message}")
         else:

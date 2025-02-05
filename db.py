@@ -175,7 +175,7 @@ def update_exchange_rates(POPULAR_CURRENCIES):
 
             if details:
                 currency_name, scale = details[0]
-                execute_query(query, (currency, currency_name, scale, today, rate))
+                execute_query(query, (currency, currency_name, scale, today, rate))  # Хранить только число!
                 logger.info(f"[DB] Курс {currency} ({rate} BYN) на {today} успешно обновлён в БД.")
             else:
                 logger.warning(f"[DB] Нет данных о {currency} в currency_requests, пропускаем обновление.")

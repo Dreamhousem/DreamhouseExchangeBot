@@ -93,9 +93,15 @@ def add_to_cache(currency_code: str, date: str, rate: float):
         date (str): Дата в формате "YYYY-MM-DD".
         rate (float): Курс валюты.
     """
+    # save_cache({})  # Очищаем кэш перед добавлением нового значения
     cache = load_cache()
     key = f"{currency_code}_{date}"
-    cache[key] = (rate, time.time())  # Сохраняем курс и время записи
+
+    # Избавляемся от лишнего текста, храним только число
+    if isinstance(rate, str) and "BYN" in rate:
+        rate = float(rate.split(":")[-1].strip().split(" ")[0])
+
+    cache[key] = (rate, time.time())  # Сохраняем только курс и время записи
     save_cache(cache)
     logger.info(f"[CACHE] Курс {currency_code} на {date} добавлен в кэш: {rate}")
 
